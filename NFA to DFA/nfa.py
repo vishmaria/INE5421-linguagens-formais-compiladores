@@ -57,7 +57,6 @@ class NFA:
         for state in all_states:
             epsilon_closures[state] = self.epsilon_closure(state)
 
-        print("Epsilon closures:", epsilon_closures)
 
     # Episilon closure = conjunto de estados que podem ser alcançados somente por epsilon
     def epsilon_closure(self, state,visited=None):
@@ -74,18 +73,16 @@ class NFA:
         epsilon_closure = {state}
         # Percorrer todas as transições para encontrar estados alcançáveis por epsilon
         for transition in self.transitions:
-            print("Transition:", transition)
+
             # Separar os elementos da transição
             origin, symbol, destiny = transition.split(",")
-            print("Origin:", origin, "Symbol:", symbol, "Destiny:", destiny)
+
             # Se o símbolo for epsilon, adicionar o estado ao epsilon_closure
             if symbol == "&" and origin == state:
                 self.epsilon = True
                 # Abordagem recursiva para encontrar todos os estados alcançáveis por epsilon
                 epsilon_closure |= self.epsilon_closure(destiny,visited)
-                print("Added", origin, "to epsilon_closure")
-
-        print("Epsilon closure:", epsilon_closure)
+                
         return epsilon_closure
 
 
