@@ -42,26 +42,63 @@ class NFA:
         # As transições serão as últimas linhas da entrada:
         self.transitions = lines[4:]
 
-    # Episilon closure = conjunto de estados que podem ser alcançados somente por epsilon
-    def epsilon_closure(self):
-        self.epsilon = True
-        # Inicialmente, o epsilon_closure é uma lista vazia
-        epsilon_closure = []
-        # Novos estados intermediários:
-        new_states = []
+        all_states = set()
         for transition in self.transitions:
-            # Separação dos elementos da transição:
             origin, symbol, destiny = transition.split(",")
-            # Se o símbolo for epsilon, adiciona o estado ao epsilon_closure:
-            if symbol == "&":
-                if origin not in epsilon_closure:
-                    new_states.append(destiny)
+            all_states.add(origin)
+            all_states.add(destiny)
 
-            if new_states == epsilon_closure:
-                break
-            epsilon_closure = new_states.copy()
+            # Evita que símbolos sejam lidos como estados:
+            if symbol not in self.alphabet:
+                self.alphabet.append(symbol)
 
-        return sorted(epsilon_closure)
+        # Calcular epsilon fecho para cada estado:, por conta da abordagem recursiva:
+        epsilon_closures = {}
+        for state in all_states:
+            epsilon_closures[state] = self.epsilon_closure(state)
 
-        
+        print("Epsilon closures:", epsilon_closures)
 
+    # Episilon closure = conjunto de estados que podem ser alcançados somente por epsilon
+    def epsilon_closure(self, state,visited=None):
+        # Inicialmente, o epsilon_closure é um set vazio (set é utilizado para evitar repetições)
+        if visited is None:
+            visited = set()
+
+        # Verificar se estado já teve o epsilon_closure calculado para evitar loops infinitos
+        if state in visited:
+            return set()
+
+        visited.add(state)
+
+        epsilon_closure = {state}
+        # Percorrer todas as transições para encontrar estados alcançáveis por epsilon
+        for transition in self.transitions:
+            print("Transition:", transition)
+            # Separar os elementos da transição
+            origin, symbol, destiny = transition.split(",")
+            print("Origin:", origin, "Symbol:", symbol, "Destiny:", destiny)
+            # Se o símbolo for epsilon, adicionar o estado ao epsilon_closure
+            if symbol == "&" and origin == state:
+                self.epsilon = True
+                # Abordagem recursiva para encontrar todos os estados alcançáveis por epsilon
+                epsilon_closure |= self.epsilon_closure(destiny,visited)
+                print("Added", origin, "to epsilon_closure")
+
+        print("Epsilon closure:", epsilon_closure)
+        return epsilon_closure
+
+
+nfa = NFA()
+nfa.input("2;A;{B};{a};A,&,A")
+
+
+nfa1 = NFA()
+nfa1.input("3;A;{C};{a,b};A,&,A;A,a,B")
+
+
+nfa2 = NFA()
+nfa2.input("3;A;{C};{a,b};A,&,A;B,&,C")
+
+nfa3 = NFA()
+nfa3.input("3;A;{C};{a,b};A,a,B")
