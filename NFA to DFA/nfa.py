@@ -28,7 +28,7 @@ class NFA:
         # (menos de 5 elementos, estados sem iniciar com letra maiúscula ou vazios):
         if len(lines) < 5:
             raise Exception("Entrada inválida! Insira mais elementos.")
-        if not lines[0].isupper():
+        if not lines[1].isupper() or not lines[2].isupper():
             raise Exception("Estados devem ser letras maiúsculas!")
         # Estados/transições vazios:
         if not lines[0] or not lines[1] or not lines[2] or not lines[3] or not lines[4]:
@@ -64,3 +64,4 @@ class NFA:
         return sorted(epsilon_closure)
 
         
+
