@@ -11,15 +11,14 @@ As transições são da forma <estado origem>,<simbolo do alfabeto>,<estado dest
 <número de estados>;<estado inicial>;{<estados finais>}; """
 
 class NFA:
-    def __init__(self, nfa,states, initial, final, alphabet, transitions, epsilon=False):
-        self.nfa = nfa
-        self.states = states
-        self.initial = initial
-        self.final = final
-        self.alphabet = alphabet
-        self.transitions = transitions
+    def __init__(self):
+        self.states = 0
+        self.initial = None
+        self.final = None
+        self.alphabet = None
+        self.transitions =  None
         # Atributo para verificar se há transição por epsilon, inicilamente falso:
-        self.epsilon = epsilon
+        self.epsilon = False
 
     def input(self, input):
         # Recebe a entrada e separa os elementos:
@@ -63,7 +62,5 @@ class NFA:
             epsilon_closure = new_states.copy()
 
         return sorted(epsilon_closure)
-
-
 
         
