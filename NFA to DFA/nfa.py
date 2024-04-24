@@ -57,7 +57,7 @@ class NFA:
         for state in all_states:
             epsilon_closures[state] = self.epsilon_closure(state)
 
-    # Getter do destino de uma trasnicao:
+    # Getter do destino de uma transicao:
     def get_destiny(self, state, symbol):
         destiny = set()
         for state in self.states:
@@ -71,94 +71,69 @@ class NFA:
 
     # Episilon closure = conjunto de estados que podem ser alcançados somente por epsilon
     def epsilon_closure(self, state,visited=None):
-        # Inicialmente, o epsilon_closure é um set vazio (set é utilizado para evitar repetições)
         if visited is None:
             visited = set()
 
-        # Verificar se estado já teve o epsilon_closure calculado para evitar loops infinitos
         if state in visited:
             return set()
 
-        visited.add(state)
+        visited.add(frozenset(state))
 
-        epsilon_closure = {state}
-        # Percorrer todas as transições para encontrar estados alcançáveis por epsilon
+        epsilon_closure = {frozenset(state)}
         for transition in self.transitions:
-
-            # Separar os elementos da transição
             origin, symbol, destiny = transition.split(",")
-
-            # Se o símbolo for epsilon, adicionar o estado ao epsilon_closure
-            if symbol == "&" and origin == state:
-                # Abordagem recursiva para encontrar todos os estados alcançáveis por epsilon
-                epsilon_closure |= self.epsilon_closure(destiny,visited)
+            if symbol == "&" and origin in state:
+                epsilon_closure |= self.epsilon_closure(destiny, visited)
 
         return epsilon_closure
     
     # Método para determinizar o autômato:
-    def determinize(self):
-        # Primiero passo é iniciar um conjunto de transições do novo automato:
-        det_transitions = set()
+def determinize(self):
+    det_transitions = set()
 
-        # Verificar se há epsilon-transição para não chamar o método desnecessariamnete:
-        if '&' in self.alphabet:
-            self.epsilon = True
-            begin_closure = self.epsilon_closure(self.initial)
-        else:
-            # Se não houver transição por epsilon, o estado inicial continua o mesmo
-            begin_closure = {self.initial}
+    if '&' in self.alphabet:
+        self.epsilon = True
+        begin_closure = self.epsilon_closure(self.initial)
+    else:
+        begin_closure = {self.initial}
 
-        # Ordenar os estados que vão ser verificados e os que já foram verificados:
-        states_to_check = [begin_closure]
-        states_checked = set()
+    states_to_check = [begin_closure]
+    states_checked = set()
 
-        # Enquanto houver estados a serem verificados:
-        while states_to_check:
-            current = states_to_check.pop(0)
-            states_checked.add(tuple(current))
+    while states_to_check:
+        current = states_to_check.pop(0)
+        states_checked.add(tuple(current))
 
-            for symbol in self.alphabet:
-                # Calcular estados-destino para os dois caos
-                # Primeiro caso: se não houver transição por epsilon
-                if not self.epsilon:
-                    # Iniciar um conjunto vazio para os estados alcançáveis
-                    destiny = set()
+        for symbol in self.alphabet:
+            destiny = set()
+            for state in current:
+                destiny.update(self.get_destiny(state, symbol))
+            e_destiny = self.epsilon_closure(destiny) if self.epsilon else destiny
 
-                    # Para cada estado do conjunto atual:
-                    for state in current:
-                        destiny.update(self.get_destiny(state, symbol))
-                # Segundo caso: se houver transição por epsilon
-                e_destiny = self.epsilon_closure(destiny) if self.epsilon else destiny
+            if e_destiny and tuple(e_destiny) not in states_checked:
+                states_to_check.append(e_destiny)
 
-                if e_destiny and tuple(e_destiny) not in states_checked:
-                    states_to_check.append(e_destiny)
+            det_transitions.add((frozenset(current), symbol, frozenset(e_destiny)))
 
-                det_transitions.add((set(current), symbol, set(e_destiny)))
-        # Agora, vamos calcular os estados de aceitação.
-        #  O conjunto de estados finais de um DFA equivalente ao NFA é o conjunto
-        # de  estados intermediários que contém pelo menos um estado de aceitação do NFA original.
+    det_accept = set()
+    for state in states_checked:
+        if any(s in self.final for s in state):
+            det_accept.add(state)
 
-        det_accept = set()
-        for state in states_checked:
-            if any(s in self.final for s in state):
-                det_accept.add(''.join(sorted(state)))
+    format_state = '{{' + '},{'.join(''.join(sorted(state)) for state in det_accept) + '}}'
+    format_alphabet = '{{' + '},{'.join(self.alphabet) + '}}'
 
-        format_state = '{{' + '},{'.join(sorted(det_accept)) + '}}'
+    format_transitions = []
+    for st, symb, nxt in det_transitions:
+        format_transitions.append(f'{{{",".join(sorted("".join(state) for state in st))}}},{symb},{{{",".join(sorted("".join(state) for state in nxt))}}}')
 
-        # Cálculo das transições do DFA:
-        format_transitions = []
-        for st, symb, nxt in det_transitions:
-            format_transitions.append(f'{"".join(sorted(st))},{symb},{"".join(sorted(nxt))}')
+    format_transitions = sorted(format_transitions, key=lambda x: (x.split(',')[0].replace('{', '').replace('}', ''), 
+                                                                   x.split(',')[1].replace('{','').replace('}','') ))
 
-        # Ajustar a formatação das transições
-        format_transitions = sorted(format_transitions, key=lambda x: (x.split(',')[0].replace('{', '').replace('}', ''), 
-                                                                       x.split(',')[1].replace('{','').replace('}','') ))
+    if self.epsilon:
+        self.alphabet.remove('&')
 
-        # Ajustar o alfabeto:
-        if self.epsilon:
-            self.alphabet.remove('&')
-
-        # Saída no padrão <número de estados>;<estado inicial>;{<estados finais>};
-        output =  f'{len(states_checked)};{"".join(sorted(begin_closure))};{format_state};'
-        return output
-
+    output = f'{len(states_checked)};{format_state};{format_alphabet};'
+    for transition in format_transitions:
+        output += f'{transition}\n'
+    return output.strip()
