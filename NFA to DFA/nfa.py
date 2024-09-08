@@ -19,6 +19,7 @@ class NFA:
         self.transitions =  None
         # Atributo para verificar se há transição por epsilon, inicilamente falso:
         self.epsilon = False
+        self.all_states = None
 
     def input(self, input):
         # Recebe a entrada e separa os elementos:
@@ -42,25 +43,20 @@ class NFA:
         # As transições serão as últimas linhas da entrada:
         self.transitions = lines[4:]
 
-        all_states = set()
+        self.all_states = set()
         for transition in self.transitions:
             origin, symbol, destiny = transition.split(",")
-            all_states.add(origin)
-            all_states.add(destiny)
+            self.all_states.add(origin)
+            self.all_states.add(destiny)
 
             # Evita que símbolos sejam lidos como estados:
             if symbol not in self.alphabet:
                 self.alphabet.append(symbol)
 
-        # Calcular epsilon fecho para cada estado:, por conta da abordagem recursiva:
-        epsilon_closures = {}
-        for state in all_states:
-            epsilon_closures[state] = self.epsilon_closure(state)
-
     # Getter do destino de uma transicao:
     def get_destiny(self, state, symbol):
         destiny = set()
-        for state in self.states:
+        for state in self.all_states:
             for transition in self.transitions:
                 org, symb, dest = transition.split(",")
                 if org == state and symb == symbol:
@@ -70,70 +66,93 @@ class NFA:
 
 
     # Episilon closure = conjunto de estados que podem ser alcançados somente por epsilon
-    def epsilon_closure(self, state,visited=None):
+    def epsilon_closure(self, state, visited=None):
+
         if visited is None:
             visited = set()
 
+        state = frozenset(state) 
         if state in visited:
             return set()
+        visited.add(state)
 
-        visited.add(frozenset(state))
-
-        epsilon_closure = {frozenset(state)}
+        epsilon_closure = {state}
         for transition in self.transitions:
             origin, symbol, destiny = transition.split(",")
             if symbol == "&" and origin in state:
-                epsilon_closure |= self.epsilon_closure(destiny, visited)
+                epsilon_destiny = self.epsilon_closure(destiny, visited)
+                epsilon_closure |= epsilon_destiny
 
         return epsilon_closure
-    
-    # Método para determinizar o autômato:
-def determinize(self):
-    det_transitions = set()
 
-    if '&' in self.alphabet:
-        self.epsilon = True
-        begin_closure = self.epsilon_closure(self.initial)
-    else:
-        begin_closure = {self.initial}
 
-    states_to_check = [begin_closure]
-    states_checked = set()
 
-    while states_to_check:
-        current = states_to_check.pop(0)
-        states_checked.add(tuple(current))
+    def determinize(self):
+        det_transitions = set()
 
-        for symbol in self.alphabet:
-            destiny = set()
-            for state in current:
-                destiny.update(self.get_destiny(state, symbol))
-            e_destiny = self.epsilon_closure(destiny) if self.epsilon else destiny
+        if '&' in self.alphabet:
+            self.epsilon = True
+            begin_closure = self.epsilon_closure(self.initial)
+            aux_set = set()
+            for conjunto in begin_closure:
+                for subset in conjunto:
+                    for item in subset:
+                        aux_set.add(item)
+            estado_novo=""
+            for item in aux_set:
+                estado_novo+=str(item)
+            
+            self.all_states.add(estado_novo)
+        else:
+            begin_closure = {self.initial}
 
-            if e_destiny and tuple(e_destiny) not in states_checked:
-                states_to_check.append(e_destiny)
+        states_to_check = [begin_closure]
+        states_checked = set()
+        final_states = set()
 
-            det_transitions.add((frozenset(current), symbol, frozenset(e_destiny)))
+        while states_to_check:
+            current = states_to_check.pop(0)
+            states_checked.add(tuple(current))
 
-    det_accept = set()
-    for state in states_checked:
-        if any(s in self.final for s in state):
-            det_accept.add(state)
+            for symbol in self.alphabet:
+                if symbol == '&':
+                    continue
 
-    format_state = '{{' + '},{'.join(''.join(sorted(state)) for state in det_accept) + '}}'
-    format_alphabet = '{{' + '},{'.join(self.alphabet) + '}}'
+                destiny = set()
+                for state in current:
+                    destiny.update(self.get_destiny(state, symbol))
+                e_destiny = self.epsilon_closure(destiny) if self.epsilon else destiny
 
-    format_transitions = []
-    for st, symb, nxt in det_transitions:
-        format_transitions.append(f'{{{",".join(sorted("".join(state) for state in st))}}},{symb},{{{",".join(sorted("".join(state) for state in nxt))}}}')
+                if e_destiny and tuple(e_destiny) not in states_checked and e_destiny not in states_to_check: 
+                    states_to_check.append(e_destiny)
 
-    format_transitions = sorted(format_transitions, key=lambda x: (x.split(',')[0].replace('{', '').replace('}', ''), 
-                                                                   x.split(',')[1].replace('{','').replace('}','') ))
+                if e_destiny:
+                    #O PROBLEMA: Está adicionando transições mesmo não checando se os estados origem tem qualquer transição com symbol
+                    for state in current:
+                        if str(str(list(state)[0])+","+str(symbol)+","+str(list(list(e_destiny)[0])[0])) in self.transitions:
+                            det_transitions.add((frozenset(current), symbol, frozenset(e_destiny)))
 
-    if self.epsilon:
-        self.alphabet.remove('&')
+                    for state in e_destiny:
+                        
+                        if state in self.final:
+                            final_states.add(tuple(current)) 
 
-    output = f'{len(states_checked)};{format_state};{format_alphabet};'
-    for transition in format_transitions:
-        output += f'{transition}\n'
-    return output.strip()
+
+        for state in states_checked:
+            if any(s in self.final for s in state):
+                final_states.add(state)
+
+        format_final = ','.join(sorted(''.join(state) for state in final_states))
+
+        format_state = ''.join(sorted(''.join(state) for state in begin_closure))
+        format_alphabet = '{{' + '},{'.join(set(self.alphabet) - {'&'}) + '}}' 
+
+        format_transitions = []
+        for st, symb, nxt in det_transitions:
+            format_transitions.append(f'{"".join(sorted("".join(state) for state in st))},{symb},{"".join(sorted("".join(state) for state in nxt))}')
+
+        format_transitions.sort() 
+        output = f'{len(states_checked)};{format_state};{{{format_final}}};{format_alphabet};{";".join(format_transitions)}\n'
+
+        return output.strip()
+
